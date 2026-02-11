@@ -70,6 +70,7 @@ models:
   - cerebras.modelzoo.data.nlp.gpt.GptHDF5MapDataProcessor.GptHDF5MapDataProcessor
   - cerebras.modelzoo.data.nlp.gpt.HuggingFaceDataProcessorEli5.HuggingFaceDataProcessorEli5
   - cerebras.modelzoo.data.nlp.gpt.HuggingFaceIterableDataProcessorEli5.HuggingFaceIterableDataProcessorEli5
+  - cerebras.modelzoo.data.nlp.gpt.HuggingFaceIterableDataProcessorOlmoMix.HuggingFaceIterableDataProcessorOlmoMix
 
 - name: gpt3
   path: cerebras.modelzoo.models.nlp.gpt3.model.GPT3Model
