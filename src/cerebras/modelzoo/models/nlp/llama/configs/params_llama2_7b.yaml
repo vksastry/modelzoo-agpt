@@ -62,35 +62,35 @@ trainer:
       loss_scaling_factor: dynamic
       max_gradient_norm: 1.0
     loop:
-      max_steps: 476837 # Llama v2 7B was trained on 2T tokens. # steps = 2T / (1024 * 4096)
+      max_steps: 200 # 476837 # Llama v2 7B was trained on 2T tokens. # steps = 2T / (1024 * 4096)
       eval_frequency: 10000
       eval_steps: 89
     checkpoint:
-      steps: 10000
+      steps: 200
       save_initial_checkpoint: true
     logging:
       # steps = 2T / (1024 * 4096)
-      log_steps: 100
+      log_steps: 50
   fit:
     train_dataloader:
       data_processor: GptHDF5MapDataProcessor
-      data_dir: ./shuffled/llama_v2_data_test/val
+      data_dir: /software/datasets/llama_data_32K/test/
       shuffle: false
       shuffle_seed: 1
       batch_size: 1024
       num_workers: 8
       prefetch_factor: 10
       persistent_workers: true
-    val_dataloader: &val_dataloader
-      data_processor: GptHDF5MapDataProcessor
-      data_dir: ./shuffled/llama_v2_data_test/test
-      shuffle: false
-      shuffle_seed: 1
-      batch_size: 1024
-      num_workers: 8
-      prefetch_factor: 10
-      persistent_workers: true
-  validate:
-    val_dataloader: *val_dataloader
-  validate_all:
-    val_dataloaders: *val_dataloader
+#    val_dataloader: &val_dataloader
+#      data_processor: GptHDF5MapDataProcessor
+#      data_dir: /software/datasets/llama_data_32K/test/
+#      shuffle: false
+#      shuffle_seed: 1
+#      batch_size: 1024
+#      num_workers: 8
+#      prefetch_factor: 10
+#      persistent_workers: true
+#  validate:
+#    val_dataloader: *val_dataloader
+#  validate_all:
+#    val_dataloaders: *val_dataloader

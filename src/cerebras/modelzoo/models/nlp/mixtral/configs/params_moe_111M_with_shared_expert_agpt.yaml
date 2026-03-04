@@ -1,20 +1,36 @@
+runconfig:
+  hf_cache_dir: /software/cerebras/dataset/AuroraGpt/hf_cache
+  mount_dirs:
+  - /software/cerebras/dataset/AuroraGpt
 trainer:
   fit:
     train_dataloader:
       batch_size: 192
-      data_dir: /software/cerebras/dataset/gptj/train_8M_msl2048/ 
-      data_processor: GptHDF5MapDataProcessor
-      num_workers: 0
+      data_root: /software/cerebras/dataset/AuroraGpt/full_olmo_mix_data
+      data_processor: HuggingFaceIterableDataProcessorOlmoMix 
+      subsets: all
+      #files_per_subset: 2
+      use_weighted_files: true
+      weighted_file_list: /home/vsastry/CS3_system/Cerebras_Training_agpt/modelzoo/src/cerebras/modelzoo/models/nlp/gpt3/configs/dolmino-mix-1124-fused-file-list.txt
+      sampling_seed: 0
+      loop_files: true
+      debug_log_first_n: 5
+      debug_text_words: 10
+      split: train
+      sequence_length: 8192
+      tokenizer_name: /software/cerebras/dataset/AuroraGpt/tokenizers/gemma-7b/
+      max_samples: 20000
+      streaming: False
+      cache_dir: /home/vsastry/CS3_system/Cerebras_Training_agpt/modelzoo/src/cerebras/modelzoo/models/nlp/gpt3 #/software/cerebras/dataset/AuroraGpt/data/olmomix_wiki_local/
       persistent_workers: true
       prefetch_factor: 10
       # repeat: true
       shuffle: false
       shuffle_seed: 1
-      use_worker_cache: false
     val_dataloader: &val_dataloader
       batch_size: 95
       data_dir: /software/cerebras/dataset/gptj/train_8M_msl2048/ 
-      data_processor: GptHDF5MapDataProcessor
+      data_processor: GptHDF5MapDataProcessor 
       persistent_workers: true
       prefetch_factor: 10
       shuffle: false
@@ -59,7 +75,7 @@ trainer:
         name: truncated_normal
         std: 0.05005626833874056
       layer_norm_epsilon: 1.0e-05
-      max_position_embeddings: 2048
+      max_position_embeddings: 131072 
       moe:
         num_shared_experts: 2
         load_balancing_loss_coef: 0.01
@@ -85,7 +101,7 @@ trainer:
       use_ffn_bias: true
       use_ffn_bias_in_attention: true
       use_projection_bias_in_attention: true
-      vocab_size: 50257
+      vocab_size: 256000 
     optimizer: &base_optimizer
       AdamW:
         adjust_learning_rate:
