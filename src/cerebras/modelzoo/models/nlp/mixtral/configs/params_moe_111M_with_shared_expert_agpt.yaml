@@ -19,9 +19,33 @@ trainer:
       split: train
       sequence_length: 8192
       tokenizer_name: /software/cerebras/dataset/AuroraGpt/tokenizers/gemma-7b/
-      max_samples: 20000
-      streaming: False
+      # 150 steps x 192 = 28800 sequences of 8192 tokens. max_samples caps the
+      # number of raw documents taken before group_texts packs them into
+      # sequences, so it must stay well above the sequence count. Left at 400000
+      # to keep the tokenizer cache shared with the 400-step run.
+      # NOTE: this flag is inverted relative to its name. With use_weighted_files
+      # the dataset is an IterableDataset, and the only thing that converts it to
+      # a concrete Dataset is gated behind `if streaming:`
+      # (HuggingFace_OlmoMix.py:399-401). streaming: False SKIPS that conversion
+      # and leaves tokenization running lazily on every batch, forever.
+      #
+      # streaming: True materializes max_samples documents into an Arrow table at
+      # startup, then tokenizes and repacks them eagerly before step 1.
+      # Measured 2026-08-29 over 150 steps:
+      #   False -> 28.0 samples/sec at steps 30-110, decaying to 25.2 by 150
+      #   True  -> 48.4-49.8 samples/sec, flat across all 150 steps
+      # 1.7x faster with the decay eliminated, and above the 40.4 compile
+      # estimate. Startup cost is ~3 min to materialize; it did NOT OOM at
+      # max_samples: 400000, since .take() slices rather than reading every file.
+      streaming: True
       cache_dir: /home/vsastry/CS3_system/Cerebras_Training_agpt/modelzoo/src/cerebras/modelzoo/models/nlp/gpt3 #/software/cerebras/dataset/AuroraGpt/data/olmomix_wiki_local/
+      # Inert in this config, harmless. The only place num_workers becomes
+      # num_proc is the `not streaming and isinstance(dataset, Dataset)` branch
+      # (HuggingFace_OlmoMix.py:420), which is unreachable here: streaming:False
+      # is what prevents the Dataset conversion, and streaming:True fails the
+      # `not streaming` test. Startup tokenization is single-process either way.
+      # Measured no effect: 28.3 samples/sec at 8 vs 30.4 at 0.
+      num_workers: 8
       persistent_workers: true
       prefetch_factor: 10
       # repeat: true
@@ -42,16 +66,39 @@ trainer:
       cluster_config:
         max_wgt_servers: 24
         num_workers_per_csx: 1
+        # Tried max_act_per_csx: 83 to match the "can only saturate 83 WIOs"
+        # warning. It backfired: WIO allocation went 96 -> 103 and activation
+        # pods 24 -> 52, with throughput unchanged at ~28 samples/sec. The
+        # warning is descriptive of the rack wiring, not a knob to match.
+        # Left unset (0 = cluster-chosen default).
     checkpoint:
-      save_initial_checkpoint: true
-      steps: 557
+      # Throughput probe: never checkpoint, it is pure wall-clock cost.
+      save_initial_checkpoint: false
+      steps: 100000
     logging:
       log_level: INFO
-      log_steps: 1
+      log_steps: 10
+    callbacks:
+    # Pin the micro batch size. Left unset it defaults to "auto", which makes
+    # the compiler search grad-accum candidates (6/12/24/32/48/64/96...) and
+    # costs ~25 min of compile per attempt. 96 divides the 192 global batch.
+    - ScopedTrainFlags:
+        csx.performance.micro_batch_size: 96
+    # val_dataloader batch_size is 95, and micro_batch_size must be <= it.
+    - ScopedValidateFlags:
+        csx.performance.micro_batch_size: 95
     loop:
-      eval_steps: 2741
-      max_steps: 5563
-      num_steps: 5563
+      # num_steps takes precedence over max_steps and the two are mutually
+      # exclusive, so max_steps/eval_steps are removed rather than overridden.
+      # 150 steps. The 400-step run showed Rate converges by step 30 and holds
+      # ~28 samples/sec, so 150 is enough to read steady state plus margin for
+      # the dip seen around steps 120-140.
+      num_steps: 150
+      # Disable validation during fit. `cszoo fit` runs mode=train_and_eval,
+      # which calls _validate_all after every train loop; a null eval_frequency
+      # is the documented way to turn that off (run_schedule.py:490). Without
+      # this, eval on the 8M-sample HDF5 set costs ~28 min of the ~87 min run.
+      eval_frequency: null
     model: &base_model
       name: mixtral
       attention_dropout_rate: 0.0

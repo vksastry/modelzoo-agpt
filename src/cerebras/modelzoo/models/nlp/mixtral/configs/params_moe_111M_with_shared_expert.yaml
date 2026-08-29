@@ -31,7 +31,7 @@ trainer:
       steps: 557
     logging:
       log_level: INFO
-      log_steps: 1
+      log_steps: 10
     loop:
       eval_steps: 2741
       max_steps: 5563
